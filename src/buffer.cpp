@@ -86,7 +86,7 @@ void BufMgr::allocBuf(FrameId & frame) {
 
 		// check ref
 		if(buffer.refbit) {
-			buffer.refbit = false;
+			this->bufDescTable[clockHand].refbit = false;
 			continue;
 		}
 
@@ -100,7 +100,7 @@ void BufMgr::allocBuf(FrameId & frame) {
 		if(buffer.dirty) {
 			frame = buffer.frameNo;
 			buffer.file->writePage(this->bufPool[frame]);
-			break;
+			//break;
 		}
 
 		// delete hashtable entry
@@ -117,11 +117,11 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page) {
 	try {
 		this->hashTable->lookup(file, pageNo, frame);
 	} catch (HashNotFoundException& e) {
-		// allocate frame
-		this->allocBuf(frame);
-		
 		// read page
 		Page new_page = file->readPage(pageNo);
+		
+		// allocate frame
+		this->allocBuf(frame);
 		this->bufPool[frame] = new_page;
 
 		// insert page into hashtable
@@ -131,14 +131,14 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page) {
 		this->bufDescTable[frame].Set(file, pageNo);
 
 		// return
-		page = &new_page;
+		page = &(this->bufPool[frame]);
 		return;
 	}
 
 	// set refbit
 	this->bufDescTable[frame].pinCnt++;
 	this->bufDescTable[frame].refbit = true;
-	page = &bufPool[frame];
+	page = &(this->bufPool[frame]);
 	return;
 }
 
@@ -231,13 +231,13 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page) {
 	// alloc buf
 	FrameId frame;
 	this->allocBuf(frame);
-
+	
 	// insert to hashtable
 	this->hashTable->insert(file, new_page.page_number(), frame);
 	
 	// set page
 	this->bufDescTable[frame].Set(file, new_page.page_number());
-
+	
 	// set return value
 	pageNo = new_page.page_number();
 	this->bufPool[frame] = new_page;
