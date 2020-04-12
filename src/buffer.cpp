@@ -37,8 +37,19 @@ BufMgr::BufMgr(std::uint32_t bufs)
   clockHand = bufs - 1;
 }
 
-
 BufMgr::~BufMgr() {
+	// flushes dirty pages
+	for(int i = 0; i < numBufs; i ++) {
+		BufDesc bufDes = this->bufDescTable[i];
+
+		if(bufDes.dirty) {
+			bufDes.file->writePage(this->bufPool[bufDes.frameNo]);
+		}
+	}
+
+	// delete tables
+	delete[] bufPool;
+	delete[] bufDescTable;
 }
 
 /**
@@ -64,7 +75,7 @@ void BufMgr::allocBuf(FrameId & frame) {
 		
 		// check if buffer all pinned
 		if(numPinned == numBufs) {
-			throw new BufferExceededException();
+			throw BufferExceededException();
 		}
 
 		// check valid
@@ -100,8 +111,36 @@ void BufMgr::allocBuf(FrameId & frame) {
 }
 
 	
-void BufMgr::readPage(File* file, const PageId pageNo, Page*& page)
-{
+void BufMgr::readPage(File* file, const PageId pageNo, Page*& page) {
+	// look up the page
+	FrameId frame;
+	try {
+		this->hashTable->lookup(file, pageNo, frame);
+	} catch (HashNotFoundException& e) {
+		// allocate frame
+		this->allocBuf(frame);
+		
+		// read page
+		Page new_page = file->readPage(pageNo);
+		this->bufPool[frame] = new_page;
+
+		// insert page into hashtable
+		this->hashTable->insert(file, pageNo, frame);
+		
+		// set
+		this->bufDescTable[frame].Set(file, pageNo);
+
+		// return
+		page = &new_page;
+		return;
+	}
+
+	// set refbit
+	BufDesc bufdes = this->bufDescTable[frame];
+	bufdes.pinCnt ++;
+	bufdes.refbit = true;
+	page = &bufPool[frame];
+	return;
 }
 
 /**
@@ -117,14 +156,14 @@ void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty) {
 	FrameId frame;
 	try {
 		this->hashTable->lookup(file, pageNo, frame);
-	} catch(HashNotFoundException e) {
+	} catch(HashNotFoundException& e) {
 		return;
 	}
 	
 	// check if pincnt == 0 and decrease pintCnt of frame
 	int pinCnt = this->bufDescTable[frame].pinCnt;
 	if(pinCnt == 0) {
-		throw new PageNotPinnedException(file->filename, pageNo, frame);
+		throw PageNotPinnedException(file->filename(), pageNo, frame);
 	}
 	this->bufDescTable[frame].pinCnt --;
 
@@ -134,13 +173,78 @@ void BufMgr::unPinPage(File* file, const PageId pageNo, const bool dirty) {
 	}
 }
 
-void BufMgr::flushFile(const File* file) 
-{
+/**
+ * Writes out all dirty pages of the file to disk.
+ * All the frames assigned to the file need to be unpinned from buffer pool before this function can be successfully called.
+ * Otherwise Error returned.
+ *
+ * @param file   	File object
+ * @throws  PagePinnedException If any page of the file is pinned in the buffer pool 
+ * @throws BadBufferException If any frame allocated to the file is found to be invalid
+ */
+void BufMgr::flushFile(const File* file) {
+	// scan buf table
+	for(int i = 0; i < numBufs; i ++) {
+		BufDesc bufDes = this->bufDescTable[i];
+		File* buf_file = bufDes.file;
+
+		// check if belong to the file
+		if(buf_file->filename() == file->filename()) {
+			// check if valid
+			if(!bufDes.valid) {
+				throw BadBufferException(bufDes.frameNo, bufDes.dirty, 
+				                         bufDes.valid, bufDes.refbit);
+			}
+
+			// if pinned
+			if(bufDes.pinCnt > 0){
+				throw PagePinnedException(buf_file->filename(), 
+				                          bufDes.pageNo, bufDes.frameNo);
+			}
+
+			// dirty -> flush and set dirty to false
+			if(bufDes.dirty) {
+				bufDes.file->writePage(this->bufPool[bufDes.frameNo]);
+				bufDes.dirty = false;
+			}
+
+			// remove from hashtable
+			this->hashTable->remove(file, bufDes.pageNo);
+
+			//invoke clear for the page
+			bufDes.Clear();
+		}
+	}
 }
 
-void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page) 
-{
+/**
+ * Allocates a new, empty page in the file and returns the Page object.
+ * The newly allocated page is also assigned a frame in the buffer pool.
+ *
+ * @param file   	File object
+ * @param PageNo  Page number. The number assigned to the page in the file is returned via this reference.
+ * @param page  	Reference to page pointer. The newly allocated in-memory Page object is returned via this reference.
+ */
+void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page) {
+	// allocate empty page
+	Page new_page = file->allocatePage();
+
+	// alloc buf
+	FrameId frame;
+	this->allocBuf(frame);
+
+	// insert to hashtable
+	this->hashTable->insert(file, new_page.page_number(), frame);
+	
+	// set page
+	BufDesc buffer = this->bufDescTable[frame];
+	buffer.Set(file, new_page.page_number());
+
+	// set return value
+	pageNo = new_page.page_number();
+	page = &new_page;
 }
+	
 
 /**
  * Delete page from file and also from buffer pool if present.
@@ -155,7 +259,7 @@ void BufMgr::disposePage(File* file, const PageId pageNo){
 	try {
 		this->hashTable->lookup(file, pageNo, frame);
 		this->hashTable->remove(file, pageNo);
-	} catch(HashNotFoundException e) {
+	} catch(HashNotFoundException& e) {
 	}
 
 	// delete from file

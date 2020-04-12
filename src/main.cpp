@@ -96,9 +96,9 @@ int main()
 
   // Delete the file since we're done with it.
   File::remove(filename);
-
-	//This function tests buffer manager, comment this line if you don't wish to test buffer manager
-	testBufMgr();
+	
+  //This function tests buffer manager, comment this line if you don't wish to test buffer manager
+  testBufMgr();
 }
 
 void testBufMgr()
@@ -136,7 +136,7 @@ void testBufMgr()
 	file3ptr = &file3;
 	file4ptr = &file4;
 	file5ptr = &file5;
-
+	
 	//Test buffer manager
 	//Comment tests which you do not wish to run now. Tests are dependent on their preceding tests. So, they have to be run in the following order. 
 	//Commenting  a particular test requires commenting all tests that follow it else those tests would fail.
@@ -146,7 +146,7 @@ void testBufMgr()
 	test4();
 	test5();
 	test6();
-
+	
 	//Close files before deleting them
 	file1.~File();
 	file2.~File();
@@ -176,7 +176,7 @@ void test1()
 		rid[i] = page->insertRecord(tmpbuf);
 		bufMgr->unPinPage(file1ptr, pid[i], true);
 	}
-
+	
 	//Reading pages back...
 	for (i = 0; i < num; i++)
 	{
