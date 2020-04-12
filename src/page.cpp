@@ -13,6 +13,7 @@
 #include "exceptions/slot_in_use_exception.h"
 #include "page_iterator.h"
 #include "page.h"
+#include <iostream>
 
 namespace badgerdb {
 
@@ -35,6 +36,7 @@ RecordId Page::insertRecord(const std::string& record_data) {
     throw InsufficientSpaceException(
         page_number(), record_data.length(), getFreeSpace());
   }
+
   const SlotId slot_number = getAvailableSlot();
   insertRecordInSlot(slot_number, record_data);
   return {page_number(), slot_number};
@@ -166,6 +168,7 @@ SlotId Page::getAvailableSlot() {
 
 void Page::insertRecordInSlot(const SlotId slot_number,
                               const std::string& record_data) {
+                                
   if (slot_number > header_.num_slots ||
       slot_number == INVALID_SLOT) {
     throw InvalidSlotException(page_number(), slot_number);
@@ -174,6 +177,7 @@ void Page::insertRecordInSlot(const SlotId slot_number,
   if (slot->used) {
     throw SlotInUseException(page_number(), slot_number);
   }
+  
   const int record_length = record_data.length();
   slot->used = true;
   slot->item_length = record_length;

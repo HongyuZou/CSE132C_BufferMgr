@@ -136,9 +136,8 @@ void BufMgr::readPage(File* file, const PageId pageNo, Page*& page) {
 	}
 
 	// set refbit
-	BufDesc bufdes = this->bufDescTable[frame];
-	bufdes.pinCnt ++;
-	bufdes.refbit = true;
+	this->bufDescTable[frame].pinCnt++;
+	this->bufDescTable[frame].refbit = true;
 	page = &bufPool[frame];
 	return;
 }
@@ -205,14 +204,14 @@ void BufMgr::flushFile(const File* file) {
 			// dirty -> flush and set dirty to false
 			if(bufDes.dirty) {
 				bufDes.file->writePage(this->bufPool[bufDes.frameNo]);
-				bufDes.dirty = false;
+				this->bufDescTable[i].dirty = false;
 			}
 
 			// remove from hashtable
 			this->hashTable->remove(file, bufDes.pageNo);
 
 			//invoke clear for the page
-			bufDes.Clear();
+			this->bufDescTable[i].Clear();
 		}
 	}
 }
@@ -237,12 +236,12 @@ void BufMgr::allocPage(File* file, PageId &pageNo, Page*& page) {
 	this->hashTable->insert(file, new_page.page_number(), frame);
 	
 	// set page
-	BufDesc buffer = this->bufDescTable[frame];
-	buffer.Set(file, new_page.page_number());
+	this->bufDescTable[frame].Set(file, new_page.page_number());
 
 	// set return value
 	pageNo = new_page.page_number();
-	page = &new_page;
+	this->bufPool[frame] = new_page;
+	page = &this->bufPool[frame];
 }
 	
 

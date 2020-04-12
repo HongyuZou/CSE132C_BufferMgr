@@ -170,7 +170,7 @@ void test1()
 {
 	//Allocating pages in a file...
 	for (i = 0; i < num; i++)
-	{
+	{	
 		bufMgr->allocPage(file1ptr, pid[i], page);
 		sprintf((char*)tmpbuf, "test.1 Page %d %7.1f", pid[i], (float)pid[i]);
 		rid[i] = page->insertRecord(tmpbuf);
