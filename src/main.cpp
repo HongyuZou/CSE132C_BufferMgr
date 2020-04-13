@@ -23,12 +23,12 @@
 using namespace badgerdb;
 
 const PageId num = 100;
-PageId pid[num], pageno1, pageno2, pageno3, i;
-RecordId rid[num], rid2, rid3;
+PageId pid[num], pid8[num * 2], pid9[num], pid10a[num], pid10b[num], pageno1, pageno2, pageno3, i;
+RecordId rid[num], rid8[num * 2], rid9[num], rid10a[num], rid10b[num], rid2, rid3;
 Page *page, *page2, *page3;
 char tmpbuf[100];
 BufMgr* bufMgr;
-File *file1ptr, *file2ptr, *file3ptr, *file4ptr, *file5ptr;
+File *file1ptr, *file2ptr, *file3ptr, *file4ptr, *file5ptr, *file7ptr, *file8ptr, *file9ptr, *file10aptr, *file10bptr;
 
 void test1();
 void test2();
@@ -36,6 +36,11 @@ void test3();
 void test4();
 void test5();
 void test6();
+void test7();
+void test8();
+void test9();
+void test10();
+void test11();
 void testBufMgr();
 
 int main() 
@@ -112,6 +117,11 @@ void testBufMgr()
   const std::string& filename3 = "test.3";
   const std::string& filename4 = "test.4";
   const std::string& filename5 = "test.5";
+  const std::string& filename7 = "test.7";
+  const std::string& filename8 = "test.8";
+  const std::string& filename9 = "test.9";
+  const std::string& filename10a = "test.10a";
+  const std::string& filename10b = "test.10b";
 
   try
 	{
@@ -120,6 +130,11 @@ void testBufMgr()
     File::remove(filename3);
     File::remove(filename4);
     File::remove(filename5);
+	File::remove(filename7);
+	File::remove(filename8);
+	File::remove(filename9);
+	File::remove(filename10a);
+	File::remove(filename10b);
   }
 	catch(FileNotFoundException e)
 	{
@@ -130,13 +145,23 @@ void testBufMgr()
 	File file3 = File::create(filename3);
 	File file4 = File::create(filename4);
 	File file5 = File::create(filename5);
+	File file7 = File::create(filename7);
+	File file8 = File::create(filename8);
+	File file9 = File::create(filename9);
+	File file10a = File::create(filename10a);
+	File file10b = File::create(filename10b);
 
 	file1ptr = &file1;
 	file2ptr = &file2;
 	file3ptr = &file3;
 	file4ptr = &file4;
 	file5ptr = &file5;
-	
+	file7ptr = &file7;
+	file8ptr = &file8;
+	file9ptr = &file9;
+	file10aptr = &file10a;
+	file10bptr = &file10b;
+
 	//Test buffer manager
 	//Comment tests which you do not wish to run now. Tests are dependent on their preceding tests. So, they have to be run in the following order. 
 	//Commenting  a particular test requires commenting all tests that follow it else those tests would fail.
@@ -146,13 +171,23 @@ void testBufMgr()
 	test4();
 	test5();
 	test6();
-	
+	test7();
+	test8();
+	test9();
+	test10();
+	test11();
+
 	//Close files before deleting them
 	file1.~File();
 	file2.~File();
 	file3.~File();
 	file4.~File();
 	file5.~File();
+	file7.~File();
+	file8.~File();
+	file9.~File();
+	file10a.~File();
+	file10b.~File();
 
 	//Delete files
 	File::remove(filename1);
@@ -160,6 +195,11 @@ void testBufMgr()
 	File::remove(filename3);
 	File::remove(filename4);
 	File::remove(filename5);
+	File::remove(filename7);
+	File::remove(filename8);
+	File::remove(filename9);
+	File::remove(filename10a);
+	File::remove(filename10b);
 
 	delete bufMgr;
 
@@ -319,3 +359,127 @@ void test6()
 
 	bufMgr->flushFile(file1ptr);
 }
+
+void test7()
+{
+	//Allocating pages in a file...
+	for (i = 0; i < num; i++)
+	{	
+		bufMgr->allocPage(file7ptr, pid[i], page);
+		sprintf((char*)tmpbuf, "test.7 Page %d %7.1f", pid[i], (float)pid[i]);
+		rid[i] = page->insertRecord(tmpbuf);
+		bufMgr->unPinPage(file7ptr, pid[i], true);
+	}
+
+	// flush pages to disk
+	bufMgr->flushFile(file7ptr);
+	
+	//Reading pages back...
+	for (i = 0; i < num; i++)
+	{
+		bufMgr->readPage(file7ptr, pid[i], page);
+		sprintf((char*)&tmpbuf, "test.7 Page %d %7.1f", pid[i], (float)pid[i]);
+		if(strncmp(page->getRecord(rid[i]).c_str(), tmpbuf, strlen(tmpbuf)) != 0)
+		{
+			PRINT_ERROR("ERROR :: CONTENTS DID NOT MATCH");
+		}
+		bufMgr->unPinPage(file7ptr, pid[i], false);
+	}
+
+	std::cout<< "Test 7 passed" << "\n";
+}
+
+void test8()
+{
+	//Allocating pages more than available in the buffer pool
+	for (i = 0; i < 2 * num; i++)
+	{	
+		bufMgr->allocPage(file8ptr, pid8[i], page);
+		sprintf((char*)tmpbuf, "test.8 Page %d %7.1f", pid8[i], (float)pid8[i]);
+		rid8[i] = page->insertRecord(tmpbuf);
+		bufMgr->unPinPage(file8ptr, pid8[i], true);
+	}
+	
+	//Reading pages back...
+	for (i = 0; i < 2 * num; i++)
+	{
+		bufMgr->readPage(file8ptr, pid8[i], page);
+		sprintf((char*)&tmpbuf, "test.8 Page %d %7.1f", pid8[i], (float)pid8[i]);
+		if(strncmp(page->getRecord(rid8[i]).c_str(), tmpbuf, strlen(tmpbuf)) != 0)
+		{
+			PRINT_ERROR("ERROR :: CONTENTS DID NOT MATCH");
+		}
+		bufMgr->unPinPage(file8ptr, pid8[i], false);
+	}
+
+	std::cout<< "Test 8 passed" << "\n";
+}
+
+void test9() {
+	// allocate new page
+	bufMgr->allocPage(file9ptr, pid9[0], page);
+	sprintf((char*)tmpbuf, "test.9 Page %d %7.1f", pid9[0], (float)pid9[0]);
+	rid9[0] = page->insertRecord(tmpbuf);
+	bufMgr->unPinPage(file9ptr, pid9[0], true);
+
+	// dispose page
+	bufMgr->disposePage(file9ptr, pid9[0]);
+
+	// read page pack
+	try {
+		Page* temp_page_ptr;
+		bufMgr->readPage(file9ptr, pid9[0], temp_page_ptr);
+	} catch (InvalidPageException& e) {
+		std::cout << "Test 9 passed" << std::endl;
+	}
+}
+
+void test10()
+{
+	//Allocating pages in a file...
+	for (i = 0; i < num; i++)
+	{	
+		bufMgr->allocPage(file10aptr, pid10a[i], page);
+		sprintf((char*)tmpbuf, "test.10a Page %d %7.1f", pid10a[i], (float)pid10a[i]);
+		rid10a[i] = page->insertRecord(tmpbuf);
+		bufMgr->unPinPage(file10aptr, pid10a[i], true);
+	}
+
+	for (i = 0; i < num; i++)
+	{	
+		bufMgr->allocPage(file10bptr, pid10b[i], page);
+		sprintf((char*)tmpbuf, "test.10b Page %d %7.1f", pid10b[i], (float)pid10b[i]);
+		rid10b[i] = page->insertRecord(tmpbuf);
+		bufMgr->unPinPage(file10bptr, pid10b[i], true);
+	}
+	
+	//Reading pages back...
+	for (i = 0; i < num; i++)
+	{
+		bufMgr->readPage(file10aptr, pid10a[i], page);
+		sprintf((char*)&tmpbuf, "test.10a Page %d %7.1f", pid10a[i], (float)pid10a[i]);
+		if(strncmp(page->getRecord(rid10a[i]).c_str(), tmpbuf, strlen(tmpbuf)) != 0)
+		{
+			PRINT_ERROR("ERROR :: CONTENTS DID NOT MATCH");
+		}
+		bufMgr->unPinPage(file10aptr, pid10a[i], false);
+	}
+
+	std::cout<< "Test 10 passed" << "\n";
+}
+
+void test11() {
+	try {
+		bufMgr->unPinPage(file10aptr, pid10a[i], false);
+	} catch (PageNotPinnedException& e) {
+		std::cout<< "Test 11 passed" << "\n";
+	}
+}
+
+void test12() {
+	
+}
+
+
+
+

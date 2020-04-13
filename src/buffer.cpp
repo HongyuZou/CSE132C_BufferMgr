@@ -258,6 +258,7 @@ void BufMgr::disposePage(File* file, const PageId pageNo){
 	try {
 		this->hashTable->lookup(file, pageNo, frame);
 		this->hashTable->remove(file, pageNo);
+		this->bufDescTable[frame].Clear();
 	} catch(HashNotFoundException& e) {
 	}
 
