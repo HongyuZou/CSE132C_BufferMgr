@@ -23,12 +23,12 @@
 using namespace badgerdb;
 
 const PageId num = 100;
-PageId pid[num], pid8[num * 2], pid9[num], pid10a[num], pid10b[num], pageno1, pageno2, pageno3, i;
-RecordId rid[num], rid8[num * 2], rid9[num], rid10a[num], rid10b[num], rid2, rid3;
+PageId pid[num], pid8[num * 2], pid9[num], pid10a[num], pid10b[num], pid12[num], pid12f[num], pageno1, pageno2, pageno3, i;
+RecordId rid[num], rid8[num * 2], rid9[num], rid10a[num], rid10b[num], rid12[num], rid12f[num], rid2, rid3;
 Page *page, *page2, *page3;
 char tmpbuf[100];
 BufMgr* bufMgr;
-File *file1ptr, *file2ptr, *file3ptr, *file4ptr, *file5ptr, *file7ptr, *file8ptr, *file9ptr, *file10aptr, *file10bptr;
+File *file1ptr, *file2ptr, *file3ptr, *file4ptr, *file5ptr, *file7ptr, *file8ptr, *file9ptr, *file10aptr, *file10bptr, *file12ptr;
 
 void test1();
 void test2();
@@ -41,6 +41,7 @@ void test8();
 void test9();
 void test10();
 void test11();
+void test12();
 void testBufMgr();
 
 int main() 
@@ -122,6 +123,7 @@ void testBufMgr()
   const std::string& filename9 = "test.9";
   const std::string& filename10a = "test.10a";
   const std::string& filename10b = "test.10b";
+  const std::string& filename12 = "test.12";
 
   try
 	{
@@ -135,6 +137,7 @@ void testBufMgr()
 	File::remove(filename9);
 	File::remove(filename10a);
 	File::remove(filename10b);
+	File::remove(filename12);
   }
 	catch(FileNotFoundException e)
 	{
@@ -150,6 +153,7 @@ void testBufMgr()
 	File file9 = File::create(filename9);
 	File file10a = File::create(filename10a);
 	File file10b = File::create(filename10b);
+	File file12 = File::create(filename12);
 
 	file1ptr = &file1;
 	file2ptr = &file2;
@@ -161,6 +165,7 @@ void testBufMgr()
 	file9ptr = &file9;
 	file10aptr = &file10a;
 	file10bptr = &file10b;
+	file12ptr = &file12;
 
 	//Test buffer manager
 	//Comment tests which you do not wish to run now. Tests are dependent on their preceding tests. So, they have to be run in the following order. 
@@ -176,6 +181,7 @@ void testBufMgr()
 	test9();
 	test10();
 	test11();
+	// test12();
 
 	//Close files before deleting them
 	file1.~File();
@@ -188,6 +194,7 @@ void testBufMgr()
 	file9.~File();
 	file10a.~File();
 	file10b.~File();
+	file12.~File();
 
 	//Delete files
 	File::remove(filename1);
@@ -200,12 +207,19 @@ void testBufMgr()
 	File::remove(filename9);
 	File::remove(filename10a);
 	File::remove(filename10b);
+	File::remove(filename12);
 
 	delete bufMgr;
 
 	std::cout << "\n" << "Passed all tests." << "\n";
 }
 
+/**
+ * Test 1:
+ *     Allocate pages and read back
+ * 
+ * Allocated pages should be able to be read back
+ */
 void test1()
 {
 	//Allocating pages in a file...
@@ -232,10 +246,17 @@ void test1()
 	std::cout<< "Test 1 passed" << "\n";
 }
 
+/**
+ * Test 2:
+ *     Writing and reading back multiple files
+ * 
+ * Writing a file and then reading it back should give the same contents
+ * i.e. contents match for every page written
+ */
 void test2()
 {
-	//Writing and reading back multiple files
-	//The page number and the value should match
+	// Writing and reading back multiple files
+	// The page number and the value should match
 	for (i = 0; i < num/3; i++) 
 	{
 		bufMgr->allocPage(file2ptr, pageno2, page2);
@@ -282,6 +303,12 @@ void test2()
 	std::cout << "Test 2 passed" << "\n";
 }
 
+/**
+ * Test 3:
+ *     Read file that does not exist
+ * 
+ * Reading a inexistent file should give an exception
+ */
 void test3()
 {
 	try
@@ -296,6 +323,13 @@ void test3()
 	std::cout << "Test 3 passed" << "\n";
 }
 
+/**
+ * Test 4 (more likely the actual Test 11):
+ *     Unpin pinned pages and unpin unpinned pages
+ * 
+ * Unpinning pinned pages should mark the page's pin count to 0
+ * whereas unpinning a pinned page results in an exception
+ */
 void test4()
 {
 	bufMgr->allocPage(file4ptr, i, page);
@@ -312,6 +346,13 @@ void test4()
 	std::cout << "Test 4 passed" << "\n";
 }
 
+/**
+ * Test 5:
+ *     No more frames in buffer pool left for allocation
+ *     (i.e. all pages in buffer pool are pinned)
+ * 
+ * Not being able to allocate frame for new page should result in an exception
+ */
 void test5()
 {
 	for (i = 0; i < num; i++) {
@@ -336,9 +377,15 @@ void test5()
 		bufMgr->unPinPage(file5ptr, i, true);
 }
 
+/**
+ * Test 6:
+ *     Flush pinned page
+ * 
+ * Trying to flush pinned pages from a file results in an exception
+ */
 void test6()
 {
-	//flushing file with pages still pinned. Should generate an error
+	// flushing file with pages still pinned. Should generate an error
 	for (i = 1; i <= num; i++) {
 		bufMgr->readPage(file1ptr, i, page);
 	}
@@ -360,9 +407,16 @@ void test6()
 	bufMgr->flushFile(file1ptr);
 }
 
+/**
+ * Test 7:
+ *     Allocate pages, flush to disk and read back
+ * 
+ * Flushing pages to disk and then reading them back should not
+ * modify contents in these pages
+ */
 void test7()
 {
-	//Allocating pages in a file...
+	// Allocating pages in a file...
 	for (i = 0; i < num; i++)
 	{	
 		bufMgr->allocPage(file7ptr, pid[i], page);
@@ -389,9 +443,17 @@ void test7()
 	std::cout<< "Test 7 passed" << "\n";
 }
 
+/**
+ * Test 8:
+ *     Allocate pages that are more than available space in buffer pool
+ *     and read back
+ * 
+ * Having number of pages more than what the buffer pool can hold
+ * should not cause a problem (unless everything in the pool is pinned)
+ */
 void test8()
 {
-	//Allocating pages more than available in the buffer pool
+	// Allocating pages more than available in the buffer pool
 	for (i = 0; i < 2 * num; i++)
 	{	
 		bufMgr->allocPage(file8ptr, pid8[i], page);
@@ -415,6 +477,12 @@ void test8()
 	std::cout<< "Test 8 passed" << "\n";
 }
 
+/**
+ * Test 9:
+ *     Read pages after pages have been disposed
+ * 
+ * Trying to read a disposed page should result in an exception
+ */
 void test9() {
 	// allocate new page
 	bufMgr->allocPage(file9ptr, pid9[0], page);
@@ -434,9 +502,15 @@ void test9() {
 	}
 }
 
+/**
+ * Test 10:
+ *     Read pages after allocating pages for another file
+ * 
+ * Allocating pages for another file should not modify contents of this one
+ */
 void test10()
 {
-	//Allocating pages in a file...
+	// Allocating pages in file 1...
 	for (i = 0; i < num; i++)
 	{	
 		bufMgr->allocPage(file10aptr, pid10a[i], page);
@@ -445,6 +519,7 @@ void test10()
 		bufMgr->unPinPage(file10aptr, pid10a[i], true);
 	}
 
+	// Allocating pages in file 2
 	for (i = 0; i < num; i++)
 	{	
 		bufMgr->allocPage(file10bptr, pid10b[i], page);
@@ -453,7 +528,7 @@ void test10()
 		bufMgr->unPinPage(file10bptr, pid10b[i], true);
 	}
 	
-	//Reading pages back...
+	// Reading pages back from file 1...
 	for (i = 0; i < num; i++)
 	{
 		bufMgr->readPage(file10aptr, pid10a[i], page);
@@ -465,21 +540,94 @@ void test10()
 		bufMgr->unPinPage(file10aptr, pid10a[i], false);
 	}
 
-	std::cout<< "Test 10 passed" << "\n";
+	std::cout << "Test 10 passed" << "\n";
 }
 
+/**
+ * Test 11:
+ *     Unpin pinned pages and unpin unpinned pages
+ * 
+ * This is actually tested by Test 4
+ * Here, the test only ensures that trying to unpin unpinned pages
+ * results in an exception
+ */
 void test11() {
 	try {
 		bufMgr->unPinPage(file10aptr, pid10a[i], false);
 	} catch (PageNotPinnedException& e) {
-		std::cout<< "Test 11 passed" << "\n";
+		std::cout << "Test 11 passed" << "\n";
 	}
 }
 
-void test12() {
-	
-}
+/**
+ * Test 12:
+ *     Test dirty bit of unPinPage()
+ * 
+ * After unPinPage(_file, _PageNo, _dirty), the page in _file
+ * with page number _PageNo should have the dirty bit set to
+ * true **if** _dirty == true
+ * The dirty bit should not change when _dirty == false
+ */
 
+/*
+void test12() {
+	// Allocating pages in file...
+	for (i = 0; i < num; i++)
+	{	
+		bufMgr->allocPage(file12ptr, pid12[i], page);
+		sprintf((char*)tmpbuf, "test.12a Page %d %7.1f", pid12[i], (float)pid12[i]);
+		rid12[i] = page->insertRecord(tmpbuf);
+		bufMgr->unPinPage(file12ptr, pid12[i], true);
+	}
+
+	// Flush pages just written to disk
+	bufMgr->flushFile(file12ptr);
+
+	std::cout << "hehe1" << "\n";
+	// Check if writes reflected in file
+	for (i = 0; i < num; i++)
+	{
+		bufMgr->readPage(file12ptr, pid12[i], page);
+		sprintf((char*)&tmpbuf, "test.12a Page %d %7.1f", pid12[i], (float)pid12[i]);
+		if(strncmp(page->getRecord(rid12[i]).c_str(), tmpbuf, strlen(tmpbuf)) != 0)
+		{
+			PRINT_ERROR("ERROR :: CONTENTS DID NOT MATCH");
+		}
+	}
+
+	std::cout << "First set of writes reflected in file" << "\n";
+
+	std::cout << "hehe2" << "\n";
+	// Try writting to these pages again with different contents
+	// yet setting dirty bit to false
+	for (i = 0; i < num; i++)
+	{
+		bufMgr->readPage(file12ptr, pid12f[i], page);
+		page->deleteRecord(rid12[i]);
+		sprintf((char*)tmpbuf, "test.12b Page %d %7.1f", pid12f[i], (float)pid12f[i]);
+		rid12f[i] = page->insertRecord(tmpbuf);
+		bufMgr->unPinPage(file12ptr, pid12f[i], false);
+	}
+
+	bufMgr->printSelf();
+	// Flush pages supposedly just written to disk
+	bufMgr->flushFile(file12ptr);
+
+	std::cout << "hehe4" << "\n";
+	// Since dirty bit not set after second write, contents in pages not changed
+	for (i = 0; i < num; i++)
+	{
+		bufMgr->readPage(file12ptr, pid12[i], page);
+		sprintf((char*)&tmpbuf, "test.12a Page %d %7.1f", pid12f[i], (float)pid12f[i]);
+		if(strncmp(page->getRecord(rid12[i]).c_str(), tmpbuf, strlen(tmpbuf)) != 0)
+		{
+			PRINT_ERROR("ERROR :: CONTENTS DID NOT MATCH");
+		}
+	}
+
+	std::cout << "Test 12 passed" << std::endl;
+}
+*/
 
 
 
