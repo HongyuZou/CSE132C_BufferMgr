@@ -553,7 +553,7 @@ void test10()
  */
 void test11() {
 	try {
-		bufMgr->unPinPage(file10aptr, pid10a[i], false);
+		bufMgr->unPinPage(file10aptr, pid10a[0], false);
 	} catch (PageNotPinnedException& e) {
 		std::cout << "Test 11 passed" << "\n";
 	}
