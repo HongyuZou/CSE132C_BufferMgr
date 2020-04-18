@@ -181,7 +181,7 @@ void testBufMgr()
 	test9();
 	test10();
 	test11();
-	// test12();
+	test12();
 
 	//Close files before deleting them
 	file1.~File();
@@ -569,7 +569,6 @@ void test11() {
  * The dirty bit should not change when _dirty == false
  */
 
-/*
 void test12() {
 	// Allocating pages in file...
 	for (i = 0; i < num; i++)
@@ -583,8 +582,33 @@ void test12() {
 	// Flush pages just written to disk
 	bufMgr->flushFile(file12ptr);
 
-	std::cout << "hehe1" << "\n";
 	// Check if writes reflected in file
+	for (i = 0; i < num; i++)
+	{
+		bufMgr->readPage(file12ptr, pid12[i], page);
+		sprintf((char*)&tmpbuf, "test.12a Page %d %7.1f", pid12[i], (float)pid12[i]);
+		if(strncmp(page->getRecord(rid12[i]).c_str(), tmpbuf, strlen(tmpbuf)) != 0)
+		{
+			PRINT_ERROR("ERROR :: CONTENTS DID NOT MATCH");
+		}
+		bufMgr->unPinPage(file12ptr, pid12[i], false);
+	}
+
+	// Try writting to these pages again with different contents
+	// yet setting dirty bit to false
+	for (i = 0; i < num; i++)
+	{
+		bufMgr->readPage(file12ptr, pid12[i], page);
+		page->deleteRecord(rid12[i]);
+		sprintf((char*)tmpbuf, "test.12b Page %d %7.1f", pid12[i], (float)pid12[i]);
+		rid12f[i] = page->insertRecord(tmpbuf);
+		bufMgr->unPinPage(file12ptr, pid12[i], false);
+	}
+
+	// Flush pages supposedly just written to disk
+	bufMgr->flushFile(file12ptr);
+
+	// Since dirty bit not set after second write, contents in pages not changed
 	for (i = 0; i < num; i++)
 	{
 		bufMgr->readPage(file12ptr, pid12[i], page);
@@ -595,39 +619,8 @@ void test12() {
 		}
 	}
 
-	std::cout << "First set of writes reflected in file" << "\n";
-
-	std::cout << "hehe2" << "\n";
-	// Try writting to these pages again with different contents
-	// yet setting dirty bit to false
-	for (i = 0; i < num; i++)
-	{
-		bufMgr->readPage(file12ptr, pid12f[i], page);
-		page->deleteRecord(rid12[i]);
-		sprintf((char*)tmpbuf, "test.12b Page %d %7.1f", pid12f[i], (float)pid12f[i]);
-		rid12f[i] = page->insertRecord(tmpbuf);
-		bufMgr->unPinPage(file12ptr, pid12f[i], false);
-	}
-
-	bufMgr->printSelf();
-	// Flush pages supposedly just written to disk
-	bufMgr->flushFile(file12ptr);
-
-	std::cout << "hehe4" << "\n";
-	// Since dirty bit not set after second write, contents in pages not changed
-	for (i = 0; i < num; i++)
-	{
-		bufMgr->readPage(file12ptr, pid12[i], page);
-		sprintf((char*)&tmpbuf, "test.12a Page %d %7.1f", pid12f[i], (float)pid12f[i]);
-		if(strncmp(page->getRecord(rid12[i]).c_str(), tmpbuf, strlen(tmpbuf)) != 0)
-		{
-			PRINT_ERROR("ERROR :: CONTENTS DID NOT MATCH");
-		}
-	}
-
 	std::cout << "Test 12 passed" << std::endl;
 }
-*/
 
 
 
